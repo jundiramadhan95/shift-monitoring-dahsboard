@@ -18,7 +18,7 @@ if datetime.now() - st.session_state.last_refresh > REFRESH_INTERVAL:
 
 # 🔐 Load credentials dari secrets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+creds_dict = st.secrets["GOOGLE_CREDENTIALS"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
