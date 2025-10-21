@@ -208,6 +208,18 @@ df_today = df_dashboard[df_dashboard["SHIFT_DATE"] == today_str]
 st.subheader(f"👥 Jadwal Shift Hari Ini ({today_str})")
 st.dataframe(df_today, width='stretch')
 
+# 📲 Kirim notifikasi Telegram untuk jadwal hari ini
+if not df_today.empty:
+    notif_lines = [f"📅 Jadwal Shift Hari Ini ({today_str}):"]
+    for _, row in df_today.iterrows():
+        notif_lines.append(
+            f"• {row['USER_DESCRIPTION']} ({row['SHIFT']}) — {row['START_TIME']} s/d {row['END_TIME']}"
+        )
+    send_telegram_message("\n".join(notif_lines))
+else:
+    send_telegram_message(f"📅 Tidak ada jadwal shift untuk hari ini ({today_str}).")
+
+
 # 🔘 Toggle tombol untuk tampilkan/sembunyikan semua jadwal
 if "show_all" not in st.session_state:
     st.session_state.show_all = False
