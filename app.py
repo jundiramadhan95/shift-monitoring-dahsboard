@@ -3,17 +3,20 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta
+import pytz
 import requests
-import json
 
 st.set_page_config(page_title="Shift Monitor", layout="wide")
+
+# 🌏 Timezone Jakarta
+tz = pytz.timezone("Asia/Jakarta")
 
 # ⏱️ Refresh otomatis setiap 1 jam
 REFRESH_INTERVAL = timedelta(hours=1)
 if "last_refresh" not in st.session_state:
-    st.session_state.last_refresh = datetime.now()
-if datetime.now() - st.session_state.last_refresh > REFRESH_INTERVAL:
-    st.session_state.last_refresh = datetime.now()
+    st.session_state.last_refresh = datetime.now(tz)
+if datetime.now(tz) - st.session_state.last_refresh > REFRESH_INTERVAL:
+    st.session_state.last_refresh = datetime.now(tz)
     st.experimental_rerun()
 
 # 🔐 Load credentials dari secrets
@@ -35,7 +38,7 @@ shift_times = {
 
 # 📅 Ambil data jadwal
 def get_schedule_for_current_month(all_rows, shift_times):
-    today = datetime.today()
+    today = datetime.now(tz)
     current_month = today.month
     current_year = today.year
 
@@ -103,8 +106,8 @@ df_schedule["end_time"] = df_schedule["end"].apply(parse_time)
 # ⏱️ Hitung durasi kerja
 def calc_duration(row):
     if row["start_time"] and row["end_time"]:
-        start = datetime.combine(datetime.today(), row["start_time"])
-        end = datetime.combine(datetime.today(), row["end_time"])
+        start = datetime.combine(datetime.now(tz).date(), row["start_time"])
+        end = datetime.combine(datetime.now(tz).date(), row["end_time"])
         if end < start:
             end += timedelta(days=1)
         return (end - start).total_seconds() / 3600
@@ -116,10 +119,12 @@ df_schedule["duration_hours"] = df_schedule.apply(calc_duration, axis=1)
 df_schedule["date"] = pd.to_datetime(df_schedule["date"]).dt.date
 
 def is_active(row):
-    now = datetime.now()
+    now = datetime.now(tz)
     if pd.notnull(row["date"]) and pd.notnull(row["start_time"]) and pd.notnull(row["end_time"]):
-        start = datetime.combine(row["date"], row["start_time"])
-        end = datetime.combine(row["date"], row["end_time"])
+        start_naive = datetime.combine(row["date"], row["start_time"])
+        end_naive = datetime.combine(row["date"], row["end_time"])
+        start = tz.localize(start_naive)
+        end = tz.localize(end_naive)
         if end < start:
             end += timedelta(days=1)
         return start <= now <= end
@@ -197,7 +202,7 @@ if not df_snapshot.equals(st.session_state.prev_df):
 st.title("📅 Shift Monitoring Dashboard Ops")
 
 # 🔎 Filter hari ini
-today_str = datetime.today().strftime("%d-%m-%Y")
+today_str = datetime.now(tz).strftime("%d-%m-%Y")
 df_today = df_dashboard[df_dashboard["SHIFT_DATE"] == today_str]
 
 st.subheader(f"👥 Jadwal Shift Hari Ini ({today_str})")
@@ -208,7 +213,4 @@ if "show_all" not in st.session_state:
     st.session_state.show_all = False
 
 if st.button("Tampilkan Semua Jadwal Bulan Ini" if not st.session_state.show_all else "Sembunyikan Semua Jadwal"):
-    st.session_state.show_all = not st.session_state.show_all
-
-if st.session_state.show_all:
-    st.subheader("📋 Semua Jadwal Shift Bulan Ini")
+    st.session_state
