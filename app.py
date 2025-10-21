@@ -174,17 +174,17 @@ def send_telegram_message(message):
     token = st.secrets.get("TELEGRAM_TOKEN", "❌ TOKEN MISSING")
     chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "❌ CHAT ID MISSING")
     
-    st.write("🔍 Token:", token)
-    st.write("🔍 Chat ID:", chat_id)
+    #st.write("🔍 Token:", token)
+    #st.write("🔍 Chat ID:", chat_id)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message}
     
-    st.write("📤 Payload:", payload)
+    #st.write("📤 Payload:", payload)
     try:
         response = requests.post(url, data=payload)
-        st.write("📬 Status:", response.status_code)
-        st.write("📬 Response:", response.text)
+        #st.write("📬 Status:", response.status_code)
+        #st.write("📬 Response:", response.text)
     except Exception as e:
         st.error(f"Gagal kirim notifikasi Telegram: {e}")
 
@@ -223,11 +223,7 @@ st.dataframe(df_today, width='stretch')
 target_time = time(6, 0)
 now = datetime.now(tz)
 
-if (
-    now.time().hour == target_time.hour
-    and now.time().minute < 15  # toleransi refresh
-    and st.session_state.get("telegram_sent_today") != today_str
-):
+def send_shift_notification(df_today, today_str):
     if not df_today.empty:
         notif_lines = [f"📅 Jadwal Shift Hari Ini ({today_str}):"]
         for _, row in df_today.iterrows():
@@ -235,9 +231,17 @@ if (
                 f"• {row['USER_DESCRIPTION']} ({row['SHIFT']}) — {row['START_TIME']} s/d {row['END_TIME']}"
             )
         send_telegram_message("\n".join(notif_lines))
+        st.success("✅ Notifikasi jadwal hari ini berhasil dikirim.")
     else:
         send_telegram_message(f"📅 Tidak ada jadwal shift untuk hari ini ({today_str}).")
+        st.warning("⚠️ Tidak ada jadwal hari ini untuk dikirim.")
 
+if (
+    now.time().hour == target_time.hour
+    and now.time().minute < 15
+    and st.session_state.get("telegram_sent_today") != today_str
+):
+    send_shift_notification(df_today, today_str)
     st.session_state.telegram_sent_today = today_str
 
 
@@ -251,3 +255,7 @@ if st.button("Tampilkan Semua Jadwal Bulan Ini" if not st.session_state.show_all
 if st.session_state.show_all:
     st.subheader("📅 Semua Jadwal Bulan Ini")
     st.dataframe(df_dashboard, width='stretch')
+    
+st.subheader("📲 Kirim Notifikasi Manual")
+if st.button("🔔 Kirim Jadwal Hari Ini ke Telegram"):
+    send_shift_notification(df_today, today_str)
