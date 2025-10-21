@@ -11,8 +11,8 @@ st.set_page_config(page_title="Shift Monitor", layout="wide")
 # 🌏 Timezone Jakarta
 tz = pytz.timezone("Asia/Jakarta")
 
-# ⏱️ Refresh otomatis setiap 1 jam
-REFRESH_INTERVAL = timedelta(minutes=15)
+# ⏱️ Refresh otomatis setiap 8 jam
+REFRESH_INTERVAL = timedelta(hours=8)
 if "last_refresh" not in st.session_state:
     st.session_state.last_refresh = datetime.now(tz)
 if datetime.now(tz) - st.session_state.last_refresh > REFRESH_INTERVAL:
