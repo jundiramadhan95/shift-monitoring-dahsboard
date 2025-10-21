@@ -246,4 +246,8 @@ if "show_all" not in st.session_state:
     st.session_state.show_all = False
 
 if st.button("Tampilkan Semua Jadwal Bulan Ini" if not st.session_state.show_all else "Sembunyikan Semua Jadwal"):
-    st.session_state
+    st.session_state.show_all = not st.session_state.show_all
+    
+if st.session_state.show_all:
+    st.subheader("📅 Semua Jadwal Bulan Ini")
+    st.dataframe(df_dashboard, width='stretch')
