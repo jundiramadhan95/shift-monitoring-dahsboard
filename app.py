@@ -2,7 +2,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import pytz
 import requests
 
@@ -12,7 +12,7 @@ st.set_page_config(page_title="Shift Monitor", layout="wide")
 tz = pytz.timezone("Asia/Jakarta")
 
 # ⏱️ Refresh otomatis setiap 1 jam
-REFRESH_INTERVAL = timedelta(hours=1)
+REFRESH_INTERVAL = timedelta(minutes=15)
 if "last_refresh" not in st.session_state:
     st.session_state.last_refresh = datetime.now(tz)
 if datetime.now(tz) - st.session_state.last_refresh > REFRESH_INTERVAL:
@@ -171,12 +171,20 @@ def detect_changes(old_df, new_df):
     return pd.DataFrame(changes)
 
 def send_telegram_message(message):
-    token = st.secrets["TELEGRAM_TOKEN"]
-    chat_id = st.secrets["TELEGRAM_CHAT_ID"]
+    token = st.secrets.get("TELEGRAM_TOKEN", "❌ TOKEN MISSING")
+    chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "❌ CHAT ID MISSING")
+    
+    st.write("🔍 Token:", token)
+    st.write("🔍 Chat ID:", chat_id)
+
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message}
+    
+    st.write("📤 Payload:", payload)
     try:
-        requests.post(url, data=payload)
+        response = requests.post(url, data=payload)
+        st.write("📬 Status:", response.status_code)
+        st.write("📬 Response:", response.text)
     except Exception as e:
         st.error(f"Gagal kirim notifikasi Telegram: {e}")
 
@@ -205,19 +213,32 @@ st.title("📅 Shift Monitoring Dashboard Ops")
 today_str = datetime.now(tz).strftime("%d-%m-%Y")
 df_today = df_dashboard[df_dashboard["SHIFT_DATE"] == today_str]
 
+#st.write(df_today)
+
 st.subheader(f"👥 Jadwal Shift Hari Ini ({today_str})")
 st.dataframe(df_today, width='stretch')
 
 # 📲 Kirim notifikasi Telegram untuk jadwal hari ini
-if not df_today.empty:
-    notif_lines = [f"📅 Jadwal Shift Hari Ini ({today_str}):"]
-    for _, row in df_today.iterrows():
-        notif_lines.append(
-            f"• {row['USER_DESCRIPTION']} ({row['SHIFT']}) — {row['START_TIME']} s/d {row['END_TIME']}"
-        )
-    send_telegram_message("\n".join(notif_lines))
-else:
-    send_telegram_message(f"📅 Tidak ada jadwal shift untuk hari ini ({today_str}).")
+# ⏰ Kirim notifikasi otomatis jam 06:00 pagi
+target_time = time(6, 0)
+now = datetime.now(tz)
+
+if (
+    now.time().hour == target_time.hour
+    and now.time().minute < 15  # toleransi refresh
+    and st.session_state.get("telegram_sent_today") != today_str
+):
+    if not df_today.empty:
+        notif_lines = [f"📅 Jadwal Shift Hari Ini ({today_str}):"]
+        for _, row in df_today.iterrows():
+            notif_lines.append(
+                f"• {row['USER_DESCRIPTION']} ({row['SHIFT']}) — {row['START_TIME']} s/d {row['END_TIME']}"
+            )
+        send_telegram_message("\n".join(notif_lines))
+    else:
+        send_telegram_message(f"📅 Tidak ada jadwal shift untuk hari ini ({today_str}).")
+
+    st.session_state.telegram_sent_today = today_str
 
 
 # 🔘 Toggle tombol untuk tampilkan/sembunyikan semua jadwal
